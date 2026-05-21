@@ -1,3 +1,5 @@
+# agent_mach_trial
+Auto devel by LLM
 # Gemma 4 & Telegram Userbot 기반 멀티 에이전트 메시징 시스템
 
 본 프로젝트는 로컬 LLM인 **Gemma 4**와 텔레그램 개인 계정 자동화(**Userbot**) 라이브러리를 유기적으로 연동하여, 사용자의 자연어 지시를 이해하고 지정된 시간에 친구에게 메시지를 자동으로 전달하는 멀티 에이전트 시스템입니다.
