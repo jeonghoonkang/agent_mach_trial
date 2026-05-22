@@ -126,6 +126,127 @@ class DeliverySignal(BaseModel):
 
 ---
 
+## 실행을 위한 설정 및 실행 방법
+
+### 1. Python 가상환경 및 의존성 설치
+
+저장소 루트에서 아래 명령을 실행합니다.
+
+```bash
+cd /path/to/agent_mach_trial
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+```
+
+### 2. 환경변수 파일 준비
+
+`.env.example`을 복사해 `.env`를 만들고 실제 값을 채웁니다.
+
+```bash
+cp .env.example .env
+```
+
+```env
+TELEGRAM_API_ID=123456
+TELEGRAM_API_HASH=your_api_hash
+TELEGRAM_SESSION_NAME=agent_mach_trial
+
+OLLAMA_BASE_URL=http://localhost:11434
+OLLAMA_MODEL=gemma4
+
+DATABASE_PATH=message_tasks.db
+DELIVERY_DRY_RUN=true
+DELIVERY_MIN_DELAY_SECONDS=2
+DELIVERY_MAX_DELAY_SECONDS=3
+```
+
+`DELIVERY_DRY_RUN=true` 상태에서는 실제 텔레그램 메시지를 보내지 않고 콘솔에만 출력합니다. 처음 실행할 때는 반드시 dry-run으로 동작을 확인한 뒤 실제 발송으로 전환하는 것을 권장합니다.
+
+현재 코드는 `.env` 파일을 자동 로드하지 않으므로, 실행 전에 아래 명령으로 환경변수를 셸에 로드합니다.
+
+```bash
+set -a
+source .env
+set +a
+```
+
+### 3. Ollama 및 Gemma 모델 준비
+
+Ollama 서버를 실행합니다.
+
+```bash
+ollama serve
+```
+
+다른 터미널에서 사용할 모델을 내려받습니다.
+
+```bash
+ollama pull gemma4
+```
+
+로컬에 설치된 모델명이 다르면 `.env`의 `OLLAMA_MODEL` 값을 실제 모델명으로 바꿉니다.
+
+### 4. 자연어 명령 파싱 및 예약 등록
+
+가상환경과 환경변수를 로드한 뒤 자연어 명령을 입력합니다.
+
+```bash
+python main.py "내일 아침 9시에 @friend에게 회의 준비됐냐고 보내줘"
+```
+
+이 명령은 Parser Agent가 Ollama/Gemma를 호출해 `MessageTask` JSON으로 변환한 뒤, Scheduler Agent가 SQLite DB(`message_tasks.db`)에 예약 작업을 저장합니다.
+
+### 5. 스케줄러 실행
+
+예약 시간이 지난 작업을 한 번만 처리하려면 아래 명령을 사용합니다.
+
+```bash
+python -m scheduler_agent.cli run-once
+```
+
+APScheduler 기반 루프를 계속 실행하려면 아래 명령을 사용합니다.
+
+```bash
+python -m scheduler_agent.cli run
+```
+
+기본 실행 주기는 60초입니다. 다른 주기를 사용하려면 `--interval` 값을 지정합니다.
+
+```bash
+python -m scheduler_agent.cli run --interval 30
+```
+
+### 6. 발송 에이전트 단독 테스트
+
+실제 텔레그램 발송 전에 dry-run으로 Delivery Agent만 테스트할 수 있습니다.
+
+```bash
+python -m delivery_agent.cli @friend "테스트 메시지입니다"
+```
+
+### 7. 실제 텔레그램 발송 전환
+
+dry-run 확인이 끝나면 `.env`에서 아래 값을 변경합니다.
+
+```env
+DELIVERY_DRY_RUN=false
+```
+
+이후 환경변수를 다시 로드하고 스케줄러를 실행합니다.
+
+```bash
+set -a
+source .env
+set +a
+
+python -m scheduler_agent.cli run
+```
+
+처음 실제 발송을 수행할 때 Telethon이 텔레그램 로그인 인증을 요구할 수 있습니다. 이때 생성되는 `*.session` 파일은 로컬에만 보관해야 하며, `.gitignore`에 의해 GitHub 업로드 대상에서 제외됩니다.
+
+---
+
 ## 후속 진행 가이드
 
 1. 위 구조에 맞춰 `.gitignore`, `.env.example`, `schemas/contract.py`를 우선 추가합니다.
