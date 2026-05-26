@@ -12,6 +12,10 @@ class DeliveryConfigurationError(RuntimeError):
     """Raised when Telegram delivery cannot be configured."""
 
 
+class RecipientValidationError(RuntimeError):
+    """Raised when a Telegram recipient cannot be resolved."""
+
+
 @dataclass
 class DeliveryAgent:
     """Telethon-backed Telegram delivery agent with spam-protection delay."""
@@ -56,3 +60,30 @@ class DeliveryAgent:
 
         async with TelegramClient(self.session_name, self.api_id, self.api_hash) as client:
             await client.send_message(signal.telethon_target, signal.final_text)
+
+    async def validate_target(self, target: str) -> str:
+        """Resolve a Telegram target without sending a message."""
+
+        if self.api_id is None or not self.api_hash:
+            raise DeliveryConfigurationError(
+                "TELEGRAM_API_ID and TELEGRAM_API_HASH are required to validate recipients"
+            )
+
+        try:
+            from telethon import TelegramClient
+        except ImportError as exc:
+            raise DeliveryConfigurationError("Install telethon to validate recipients") from exc
+
+        try:
+            async with TelegramClient(self.session_name, self.api_id, self.api_hash) as client:
+                entity = await client.get_entity(target)
+        except Exception as exc:
+            raise RecipientValidationError(f"Telegram recipient is not reachable: {target}") from exc
+
+        username = getattr(entity, "username", None)
+        entity_id = getattr(entity, "id", None)
+        if username:
+            return f"@{username}"
+        if entity_id is not None:
+            return str(entity_id)
+        return target

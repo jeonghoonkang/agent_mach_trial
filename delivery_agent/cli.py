@@ -12,14 +12,21 @@ def main() -> None:
     parser.add_argument("target", help="Telegram @username, phone number, or peer identifier")
     parser.add_argument("text", help="Message text")
     parser.add_argument("--task-id", type=int, default=0)
+    parser.add_argument("--validate-only", action="store_true", help="Resolve the target without sending")
     args = parser.parse_args()
+
+    agent = DeliveryAgent.from_env()
+    if args.validate_only:
+        resolved = asyncio.run(agent.validate_target(args.target))
+        print(f"valid recipient: {resolved}")
+        return
 
     signal = DeliverySignal(
         task_id=args.task_id,
         telethon_target=args.target,
         final_text=args.text,
     )
-    asyncio.run(DeliveryAgent.from_env().deliver(signal))
+    asyncio.run(agent.deliver(signal))
 
 
 if __name__ == "__main__":

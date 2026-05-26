@@ -27,7 +27,7 @@ def main() -> None:
 
     if args.command == "add":
         payload = json.loads(args.json_file.read_text(encoding="utf-8"))
-        task_id = agent.schedule(MessageTask.model_validate(payload))
+        task_id = asyncio.run(agent.validate_and_schedule(MessageTask.model_validate(payload)))
         print(task_id)
     elif args.command == "run-once":
         delivered = asyncio.run(agent.run_once())

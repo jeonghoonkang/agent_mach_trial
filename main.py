@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import asyncio
 from datetime import datetime, timezone
 
 from parser_agent.agent import ParsingAgent
@@ -15,7 +16,7 @@ def main() -> None:
 
     now = datetime.fromisoformat(args.now) if args.now else datetime.now(timezone.utc)
     task = ParsingAgent().parse(args.text, now=now)
-    task_id = SchedulerAgent.from_env().schedule(task)
+    task_id = asyncio.run(SchedulerAgent.from_env().validate_and_schedule(task))
     print(f"scheduled task_id={task_id}")
 
 

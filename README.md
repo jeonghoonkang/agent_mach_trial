@@ -159,11 +159,14 @@ OLLAMA_MODEL=gemma4
 
 DATABASE_PATH=message_tasks.db
 DELIVERY_DRY_RUN=true
+VALIDATE_RECIPIENT_ON_SCHEDULE=true
 DELIVERY_MIN_DELAY_SECONDS=2
 DELIVERY_MAX_DELAY_SECONDS=3
 ```
 
 `DELIVERY_DRY_RUN=true` 상태에서는 실제 텔레그램 메시지를 보내지 않고 콘솔에만 출력합니다. 처음 실행할 때는 반드시 dry-run으로 동작을 확인한 뒤 실제 발송으로 전환하는 것을 권장합니다.
+
+`VALIDATE_RECIPIENT_ON_SCHEDULE=true` 상태에서는 예약을 DB에 저장하기 전에 Telethon으로 수신자를 즉시 조회합니다. `@username`이 틀렸거나 접근할 수 없는 대상이면 예약을 저장하지 않고 오류를 반환합니다.
 
 현재 코드는 `.env` 파일을 자동 로드하지 않으므로, 실행 전에 아래 명령으로 환경변수를 셸에 로드합니다.
 
@@ -197,7 +200,15 @@ ollama pull gemma4
 python main.py "내일 아침 9시에 @friend에게 회의 준비됐냐고 보내줘"
 ```
 
-이 명령은 Parser Agent가 Ollama/Gemma를 호출해 `MessageTask` JSON으로 변환한 뒤, Scheduler Agent가 SQLite DB(`message_tasks.db`)에 예약 작업을 저장합니다.
+이 명령은 Parser Agent가 Ollama/Gemma를 호출해 `MessageTask` JSON으로 변환한 뒤, Scheduler Agent가 수신자 유효성을 검증하고 SQLite DB(`message_tasks.db`)에 예약 작업을 저장합니다.
+
+수신자 검증은 실제 메시지를 보내지 않고 Telegram 엔티티 조회만 수행합니다. 다만 Telethon 로그인이 필요하므로 최초 실행 시 전화번호, 인증 코드, 2단계 비밀번호를 요구할 수 있습니다.
+
+개발 중 수신자 검증을 잠시 끄려면 `.env`에서 아래처럼 설정합니다.
+
+```env
+VALIDATE_RECIPIENT_ON_SCHEDULE=false
+```
 
 ### 5. 스케줄러 실행
 
@@ -225,6 +236,12 @@ python -m scheduler_agent.cli run --interval 30
 
 ```bash
 python -m delivery_agent.cli @friend "테스트 메시지입니다"
+```
+
+메시지를 보내지 않고 수신자만 검증하려면 아래 명령을 사용합니다.
+
+```bash
+python -m delivery_agent.cli @friend "검증용 메시지" --validate-only
 ```
 
 ### 7. 실제 텔레그램 발송 전환

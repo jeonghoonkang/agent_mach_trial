@@ -16,6 +16,7 @@ class SchedulerAgent:
     repository: MessageTaskRepository
     delivery_agent: DeliveryAgent
     batch_size: int = 10
+    validate_recipient_on_schedule: bool = True
 
     @classmethod
     def from_env(cls) -> "SchedulerAgent":
@@ -23,10 +24,18 @@ class SchedulerAgent:
         return cls(
             repository=MessageTaskRepository(database_path),
             delivery_agent=DeliveryAgent.from_env(),
+            validate_recipient_on_schedule=(
+                os.getenv("VALIDATE_RECIPIENT_ON_SCHEDULE", "true").lower() != "false"
+            ),
         )
 
     def schedule(self, task: MessageTask) -> int:
         return self.repository.add_task(task)
+
+    async def validate_and_schedule(self, task: MessageTask) -> int:
+        if self.validate_recipient_on_schedule:
+            await self.delivery_agent.validate_target(task.recipient_identifier)
+        return self.schedule(task)
 
     async def run_once(self) -> int:
         signals = self.repository.claim_due_tasks(limit=self.batch_size)
